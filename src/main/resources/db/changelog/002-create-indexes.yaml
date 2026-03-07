@@ -1,0 +1,38 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: "el.amegoal@gmail.com"
+      changes:
+        - createIndex:
+            tableName: users
+            indexName: idx_users_name_surname
+            columns:
+              - column:
+                  name: name
+              - column:
+                  name: surname
+
+        - createIndex:
+            tableName: users
+            indexName: idx_users_active
+            columns:
+              - column:
+                  name: active
+
+  - changeSet:
+      id: 2
+      author: "el.amegoal@gmail.com"
+      changes:
+        - createIndex:
+            tableName: payment_cards
+            indexName: idx_payment_cards_user_id
+            columns:
+              - column:
+                  name: user_id
+
+        - createIndex:
+            tableName: payment_cards
+            indexName: idx_payment_cards_active
+            columns:
+              - column:
+                  name: active
