@@ -42,4 +42,7 @@ public interface UserDao extends JpaRepository<User, Long> {
     @Transactional
     @Query(value = UserQuery.DEACTIVATE_USER_BY_ID_JPQL)
     int deactivateUserById(@Param("id") Long id);
+
+    @Transactional(readOnly = true)
+    boolean existsByEmail(String email);
 }

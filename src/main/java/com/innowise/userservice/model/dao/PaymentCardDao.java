@@ -56,4 +56,7 @@ public interface PaymentCardDao extends JpaRepository<PaymentCard, Long> {
     @Transactional(readOnly = true)
     @Query(value = PaymentCardQuery.COUNT_PAYMENT_CARD_BY_USER_ID_JPQL)
     long countPaymentCardByUserId(@Param("userId") Long userId);
+
+    @Transactional(readOnly = true)
+    boolean existsByNumber(String number);
 }
