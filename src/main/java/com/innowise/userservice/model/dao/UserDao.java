@@ -20,7 +20,7 @@ public interface UserDao extends JpaRepository<User, Long> {
     @Modifying
     @Transactional
     @Query(value = UserQuery.SAVE_USER_NATIVE, nativeQuery = true)
-    void saveUser(@Param("user") User user);
+    Integer saveUser(@Param("user") User user);
 
     @Transactional(readOnly = true)
     Optional<User> findUserById(Long id);

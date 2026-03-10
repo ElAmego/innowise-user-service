@@ -1,6 +1,9 @@
 package com.innowise.userservice.service;
 
 import com.innowise.userservice.dto.UserDto;
+import com.innowise.userservice.exception.custom.DuplicateEmailException;
+import com.innowise.userservice.exception.custom.InvalidUserDataException;
+import com.innowise.userservice.exception.custom.UserNotFoundException;
 import com.innowise.userservice.mapper.UserMapper;
 import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.User;
@@ -22,9 +25,9 @@ public class UserService {
         this.userMapper = userMapper;
     }
 
-    public UserDto createUser(UserDto userDto) {
+    public boolean createUser(UserDto userDto) {
         if (userDto == null) {
-            return null;
+            throw new InvalidUserDataException("User data cannot be null");
         }
 
         final User user = userMapper.toEntity(userDto);
@@ -33,17 +36,16 @@ public class UserService {
 
         if (!isExist) {
             user.setActive(true);
-            userDao.saveUser(user);
 
-            return userMapper.toDto(user);
+            return userDao.saveUser(user) > 0;
         } else {
-            return null;
+            throw new DuplicateEmailException(userDto.getEmail());
         }
     }
 
     public UserDto getUserById(Long id) {
         if (id == null) {
-            return null;
+            throw new InvalidUserDataException("ID cannot be null");
         }
 
         final Optional<User> userOptional = userDao.findUserById(id);
@@ -52,14 +54,14 @@ public class UserService {
             final User user = userOptional.get();
 
             return userMapper.toDto(user);
+        } else {
+            throw new UserNotFoundException(id);
         }
-
-        return null;
     }
 
     public Page<UserDto> getAllUsers(Pageable pageable) {
         if (pageable == null) {
-            return null;
+            throw new InvalidUserDataException("Pageable cannot be null");
         }
 
         return userDao.findAll(pageable)
@@ -68,25 +70,26 @@ public class UserService {
 
     public UserDto updateUser(UserDto userDto) {
         if (userDto == null) {
-            return null;
+            throw new InvalidUserDataException("User data with ID is required");
         }
 
         final Long userDtoId = userDto.getId();
         final Optional<User> userOptional = userDao.findUserById(userDtoId);
 
         if (userOptional.isPresent()) {
-            final User user = userOptional.get();
-            userDao.updateUserById(user);
+            final User bdUser = userOptional.get();
+            userMapper.updateUserFromDto(userDto, bdUser);
+            userDao.updateUserById(bdUser);
 
-            return userMapper.toDto(user);
+            return userMapper.toDto(bdUser);
         }
 
-        return null;
+        throw new DuplicateEmailException(userDto.getEmail());
     }
 
     public boolean activateUser(Long id) {
         if (id == null) {
-            return false;
+            throw new InvalidUserDataException("ID cannot be null");
         }
 
         final int updated = userDao.activateUserById(id);
@@ -96,7 +99,7 @@ public class UserService {
 
     public boolean deactivateUser(Long id) {
         if (id == null) {
-            return false;
+            throw new InvalidUserDataException("ID cannot be null");
         }
 
         final int updated = userDao.deactivateUserById(id);

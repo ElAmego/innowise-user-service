@@ -2,8 +2,7 @@ package com.innowise.userservice.mapper;
 
 import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.model.entity.PaymentCard;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.mapstruct.*;
 
 @Mapper(componentModel = "spring")
 public interface PaymentCardMapper {
@@ -14,4 +13,10 @@ public interface PaymentCardMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     PaymentCard toEntity(PaymentCardDto dto);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    @Mapping(target = "user", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    void updatePaymentCardFromDto(PaymentCardDto dto, @MappingTarget PaymentCard card);
 }

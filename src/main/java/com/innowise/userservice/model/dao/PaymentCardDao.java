@@ -18,6 +18,7 @@ import java.util.Optional;
 public interface PaymentCardDao extends JpaRepository<PaymentCard, Long> {
     int MAX_CARDS_PER_USER = 5;
 
+    @Transactional
     default PaymentCard savePaymentCard(PaymentCard paymentCard) {
         final Long userId = paymentCard.getUser().getId();
         final long userCardsValue = countPaymentCardByUserId(userId);

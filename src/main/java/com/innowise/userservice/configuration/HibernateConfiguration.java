@@ -1,20 +1,25 @@
 package com.innowise.userservice.configuration;
 
 import com.innowise.userservice.constant.PackageUrl;
+import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.cfg.AvailableSettings;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import javax.sql.DataSource;
 import java.util.Properties;
 
 @Configuration
 @EnableJpaAuditing
+@EnableTransactionManagement
 @EnableJpaRepositories(basePackages = "com.innowise.userservice.model.dao")
 public class HibernateConfiguration {
 
@@ -40,7 +45,14 @@ public class HibernateConfiguration {
         return entityManagerFactory;
     }
 
-    private Properties getHibernateProperties() {
+    @Bean
+    public PlatformTransactionManager transactionManager(final EntityManagerFactory entityManagerFactory) {
+        final JpaTransactionManager transactionManager = new JpaTransactionManager();
+        transactionManager.setEntityManagerFactory(entityManagerFactory);
+        return transactionManager;
+    }
+
+        private Properties getHibernateProperties() {
         final Properties properties = new Properties();
         properties.setProperty(AvailableSettings.DIALECT, hibernateDialect);
         properties.setProperty(AvailableSettings.SHOW_SQL, hibernateShowSql);
