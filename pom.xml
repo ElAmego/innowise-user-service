@@ -24,7 +24,9 @@
         <mapstruct.version>1.6.3</mapstruct.version>
         <expressly.version>6.0.0</expressly.version>
         <jakarta.servlet.version>6.1.0</jakarta.servlet.version>
-        <jackson.version>3.1.0</jackson.version>
+        <jackson.version>2.15.3</jackson.version>
+        <spring.data.redis.version>4.1.0-M1</spring.data.redis.version>
+        <lettuce.core.version>7.5.0.RELEASE</lettuce.core.version>
     </properties>
 
     <dependencies>
@@ -53,6 +55,12 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
             <version>${spring.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-redis</artifactId>
+            <version>${spring.data.redis.version}</version>
         </dependency>
 
         <dependency>
@@ -130,10 +138,21 @@
         </dependency>
 
         <dependency>
-            <groupId>tools.jackson.core</groupId>
+            <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
-            <scope>compile</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+            <version>${lettuce.core.version}</version>
         </dependency>
     </dependencies>
 
@@ -162,6 +181,17 @@
                 <version>3.4.0</version>
                 <configuration>
                     <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <compilerArgs>
+                        <arg>-parameters</arg>
+                    </compilerArgs>
                 </configuration>
             </plugin>
         </plugins>

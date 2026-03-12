@@ -4,8 +4,10 @@ import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.model.entity.PaymentCard;
 import org.mapstruct.*;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", uses = {UserMapper.class})
 public interface PaymentCardMapper {
+
+    @Mapping(target = "user", source = "user")
     PaymentCardDto toDto(PaymentCard card);
 
     @Mapping(target = "id", ignore = true)

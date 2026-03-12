@@ -2,11 +2,16 @@ package com.innowise.userservice.model.entity;
 
 import jakarta.persistence.*;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDate;
 
 @Entity
 @Table(name = "payment_cards")
-public class PaymentCard extends BaseEntity {
+public class PaymentCard extends BaseEntity implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

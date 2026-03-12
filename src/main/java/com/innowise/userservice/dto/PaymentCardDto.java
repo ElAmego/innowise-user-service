@@ -1,15 +1,20 @@
 package com.innowise.userservice.dto;
 
-import com.innowise.userservice.model.entity.User;
 import jakarta.validation.constraints.*;
 
+import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDate;
 
-public class PaymentCardDto {
+public class PaymentCardDto implements Serializable {
+
+    @Serial
+    private static final long serialVersionUID = 1L;
+
     private Long id;
 
     @NotNull(message = "User is required")
-    private User user;
+    private UserDto user;
 
     @NotBlank(message = "Card number is required")
     @Pattern(regexp = "^[0-9]{16}$", message = "Card number must be 16 digits")
@@ -27,7 +32,7 @@ public class PaymentCardDto {
 
     public PaymentCardDto() { }
 
-    public PaymentCardDto(Long id, User user, String number, String holder, LocalDate expirationDate,
+    public PaymentCardDto(Long id, UserDto user, String number, String holder, LocalDate expirationDate,
                           Boolean active) {
         this.id = id;
         this.user = user;
@@ -45,11 +50,11 @@ public class PaymentCardDto {
         this.id = id;
     }
 
-    public User getUser() {
+    public UserDto getUser() {
         return user;
     }
 
-    public void setUser(User user) {
+    public void setUser(UserDto user) {
         this.user = user;
     }
 

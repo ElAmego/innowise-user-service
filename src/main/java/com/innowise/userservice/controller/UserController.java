@@ -1,6 +1,7 @@
 package com.innowise.userservice.controller;
 
 import com.innowise.userservice.dto.UserDto;
+import com.innowise.userservice.dto.UserWithCardsDto;
 import com.innowise.userservice.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -61,5 +62,10 @@ public class UserController {
     public ResponseEntity<Void> deactivateUser(@PathVariable("id") Long id) {
         userService.deactivateUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{id}/with-cards")
+    public UserWithCardsDto getUserWithCards(@PathVariable("id") Long id) {
+        return userService.getUserWithCardsById(id);
     }
 }

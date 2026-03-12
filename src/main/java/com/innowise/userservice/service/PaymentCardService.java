@@ -11,6 +11,8 @@ import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.PaymentCard;
 import com.innowise.userservice.model.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ public class PaymentCardService {
         this.paymentCardMapper = paymentCardMapper;
     }
 
+    @CacheEvict(value = "userWithCards", key = "#paymentCardDto.user.id")
     public PaymentCardDto createPaymentCard(PaymentCardDto paymentCardDto) {
         if (paymentCardDto == null) {
             throw new InvalidPaymentCardDataException("Payment card data cannot be null");
@@ -106,6 +109,9 @@ public class PaymentCardService {
         return paymentCardDtoList;
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "userWithCards", key = "#paymentCardDto.user.id")
+    })
     public PaymentCardDto updatePaymentCard(PaymentCardDto paymentCardDto) {
         if (paymentCardDto == null) {
             throw new InvalidPaymentCardDataException("Payment card data cannot be null");
@@ -125,6 +131,7 @@ public class PaymentCardService {
         }
     }
 
+    @CacheEvict(value = "userWithCards", key = "#id")
     public boolean activatePaymentCard(Long id) {
         if (id == null) {
             throw new InvalidPaymentCardDataException("ID cannot be null");
@@ -135,6 +142,7 @@ public class PaymentCardService {
         return updated != 0;
     }
 
+    @CacheEvict(value = "userWithCards", key = "#id")
     public boolean deactivatePaymentCard(Long id) {
         if (id == null) {
             throw new InvalidPaymentCardDataException("ID cannot be null");
