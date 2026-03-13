@@ -62,13 +62,23 @@ public class PaymentCardController {
 
     @PatchMapping("/{id}/activate")
     public ResponseEntity<Void> activatePaymentCard(@PathVariable("id") Long id) {
-        paymentCardService.activatePaymentCard(id);
+        boolean activated = paymentCardService.activatePaymentCard(id);
+
+        if (!activated) {
+            return ResponseEntity.notFound().build();
+        }
+
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/deactivate")
     public ResponseEntity<Void> deactivatePaymentCard(@PathVariable("id") Long id) {
-        paymentCardService.deactivatePaymentCard(id);
+        boolean deactivated = paymentCardService.deactivatePaymentCard(id);
+
+        if (!deactivated) {
+            return ResponseEntity.notFound().build();
+        }
+
         return ResponseEntity.noContent().build();
     }
 }

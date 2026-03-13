@@ -118,13 +118,18 @@ public class UserService {
 
         if (userOptional.isPresent()) {
             final User bdUser = userOptional.get();
-            userMapper.updateUserFromDto(userDto, bdUser);
-            userDao.updateUserById(bdUser);
 
-            return userMapper.toDto(bdUser);
+            if (!userDto.getEmail().equals(bdUser.getEmail())) {
+                userMapper.updateUserFromDto(userDto, bdUser);
+                userDao.updateUserById(bdUser);
+
+                return userMapper.toDto(bdUser);
+            } else {
+                throw new DuplicateEmailException(userDto.getEmail());
+            }
+        } else {
+            throw new UserNotFoundException(userDto.getId());
         }
-
-        throw new DuplicateEmailException(userDto.getEmail());
     }
 
     @CacheEvict(value = "userWithCards", key = "#id")
