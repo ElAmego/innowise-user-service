@@ -12,11 +12,14 @@ import com.innowise.userservice.model.entity.User;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -35,7 +38,6 @@ class FullFlowIntegrationTest {
 
     static {
         System.setProperty("docker.host", "tcp://localhost:2375");
-        System.out.println("Docker host configured: " + System.getProperty("docker.host"));
     }
 
     @Container
@@ -44,6 +46,10 @@ class FullFlowIntegrationTest {
             .withUsername("test")
             .withPassword("test")
             .withReuse(false);
+
+    @Container
+    static GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine")
+            .withExposedPorts(6379);
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -59,14 +65,15 @@ class FullFlowIntegrationTest {
     private Long testUserId;
     private Long testCardId;
 
-    @BeforeAll
-    static void beforeAll() {
-        System.setProperty("DB_URL", postgres.getJdbcUrl());
-        System.setProperty("DB_USERNAME", postgres.getUsername());
-        System.setProperty("DB_PASSWORD", postgres.getPassword());
-        System.setProperty("DB_DRIVER", "org.postgresql.Driver");
+    @DynamicPropertySource
+    static void dynamicProperties(DynamicPropertyRegistry registry) {
+        registry.add("DB_URL", postgres::getJdbcUrl);
+        registry.add("DB_USERNAME", postgres::getUsername);
+        registry.add("DB_PASSWORD", postgres::getPassword);
+        registry.add("DB_DRIVER", () -> "org.postgresql.Driver");
 
-        System.out.println("Test Database URL: " + postgres.getJdbcUrl());
+        registry.add("redis.host", redis::getHost);
+        registry.add("redis.port", () -> String.valueOf(redis.getMappedPort(6379)));
     }
 
     @BeforeEach
@@ -102,9 +109,9 @@ class FullFlowIntegrationTest {
 
             final List<User> users = userDao.findAll();
             assertEquals(1, users.size());
-            assertEquals("john.doe@test.com", users.getFirst().getEmail());
+            assertEquals("john.doe@test.com", users.get(0).getEmail());
 
-            testUserId = users.getFirst().getId();
+            testUserId = users.get(0).getId();
         }
 
         @Test
@@ -328,9 +335,9 @@ class FullFlowIntegrationTest {
 
             final List<PaymentCard> cards = paymentCardDao.findAll();
             assertEquals(1, cards.size());
-            assertEquals(user.getId(), cards.getFirst().getUser().getId());
+            assertEquals(user.getId(), cards.get(0).getUser().getId());
 
-            testCardId = cards.getFirst().getId();
+            testCardId = cards.get(0).getId();
         }
 
         @Test
