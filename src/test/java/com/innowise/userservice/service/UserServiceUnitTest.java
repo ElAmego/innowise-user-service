@@ -151,7 +151,7 @@ class UserServiceUnitTest {
         assertNotNull(result);
         assertEquals(1L, result.getId());
         assertEquals(1, result.getCards().size());
-        assertEquals("1234567890123456", result.getCards().getFirst().getNumber());
+        assertEquals("1234567890123456", result.getCards().get(0).getNumber());
     }
 
     @Test

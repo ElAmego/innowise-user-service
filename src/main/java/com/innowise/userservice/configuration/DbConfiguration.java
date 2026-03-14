@@ -11,6 +11,7 @@ import javax.sql.DataSource;
 
 @Configuration
 public class DbConfiguration {
+
     @Autowired
     private Environment environment;
 
@@ -21,6 +22,8 @@ public class DbConfiguration {
         dataSource.setUrl(environment.getRequiredProperty(EnvironmentValueName.DB_URL));
         dataSource.setUsername(environment.getRequiredProperty(EnvironmentValueName.DB_USERNAME));
         dataSource.setPassword(environment.getRequiredProperty(EnvironmentValueName.DB_PASSWORD));
+
+        System.out.println("dbUrl: " + environment.getRequiredProperty(EnvironmentValueName.DB_URL));
         return dataSource;
     }
 }

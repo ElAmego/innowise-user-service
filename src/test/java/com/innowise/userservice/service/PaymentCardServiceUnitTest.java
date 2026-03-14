@@ -126,6 +126,8 @@ class PaymentCardServiceUnitTest {
 
     @Test
     void getAllPaymentCardsByUserId_Success_ReturnsList() {
+        when(userDao.existsById(1L)).thenReturn(true);
+
         final List<PaymentCard> cards = List.of(card);
         when(paymentCardDao.findAllByUserId(1L)).thenReturn(cards);
         when(paymentCardMapper.toDto(card)).thenReturn(cardDto);
