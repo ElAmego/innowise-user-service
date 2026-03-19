@@ -3,9 +3,9 @@ package com.innowise.userservice.model.specification;
 import com.innowise.userservice.model.entity.PaymentCard;
 import org.springframework.data.jpa.domain.Specification;
 
-public final class PaymentCartSpecification {
+public final class PaymentCardSpecification {
 
-    private PaymentCartSpecification() { }
+    private PaymentCardSpecification() { }
 
     public static Specification<PaymentCard> numberLike(String number) {
         return (root, query, criteriaBuilder) -> {
