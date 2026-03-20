@@ -240,7 +240,7 @@ class UserServiceUnitTest {
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        assertEquals("John", result.getContent().getFirst().getName());
+        assertEquals("John", result.getContent().get(0).getName());
         verify(userDao).findAll(any(Specification.class), eq(pageable));
     }
 

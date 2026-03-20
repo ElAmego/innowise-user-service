@@ -111,7 +111,7 @@ class FullFlowIntegrationTest {
 
             final List<User> users = userDao.findAll();
             assertEquals(1, users.size());
-            assertEquals("john.doe@test.com", users.getFirst().getEmail());
+            assertEquals("john.doe@test.com", users.get(0).getEmail());
         }
 
         @Test
@@ -331,7 +331,7 @@ class FullFlowIntegrationTest {
 
             final List<PaymentCard> cards = paymentCardDao.findAll();
             assertEquals(1, cards.size());
-            assertEquals(user.getId(), cards.getFirst().getUser().getId());
+            assertEquals(user.getId(), cards.get(0).getUser().getId());
         }
 
         @Test
