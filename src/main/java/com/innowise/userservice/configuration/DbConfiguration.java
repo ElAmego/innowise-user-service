@@ -1,7 +1,7 @@
 package com.innowise.userservice.configuration;
 
 import com.innowise.userservice.constant.EnvironmentValueName;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -10,9 +10,9 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import javax.sql.DataSource;
 
 @Configuration
+@RequiredArgsConstructor
 public class DbConfiguration {
-    @Autowired
-    private Environment environment;
+    private final Environment environment;
 
     @Bean
     public DataSource dataSource() {

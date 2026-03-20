@@ -2,7 +2,8 @@ package com.innowise.userservice.service;
 
 import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.dto.UserDto;
-import com.innowise.userservice.exception.custom.*;
+import com.innowise.userservice.exception.custom.DuplicatePaymentCardNumberException;
+import com.innowise.userservice.exception.custom.UserNotFoundException;
 import com.innowise.userservice.mapper.PaymentCardMapper;
 import com.innowise.userservice.model.dao.PaymentCardDao;
 import com.innowise.userservice.model.dao.UserDao;
@@ -19,9 +20,16 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.hibernate.validator.internal.util.Contracts.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentCardServiceUnitTest {
@@ -39,7 +47,6 @@ class PaymentCardServiceUnitTest {
     private PaymentCardService paymentCardService;
 
     private User user;
-    private UserDto userDto;
     private PaymentCard card;
     private PaymentCardDto cardDto;
 
@@ -50,7 +57,7 @@ class PaymentCardServiceUnitTest {
         user.setName("John");
         user.setEmail("john@test.com");
 
-        userDto = new UserDto();
+        UserDto userDto = new UserDto();
         userDto.setId(1L);
         userDto.setName("John");
         userDto.setSurname("Doe");
@@ -72,7 +79,6 @@ class PaymentCardServiceUnitTest {
         cardDto.setHolder("John Doe");
         cardDto.setExpirationDate(LocalDate.now().plusYears(3));
         cardDto.setActive(true);
-        cardDto.setUser(userDto);
     }
 
     @Test
@@ -83,7 +89,7 @@ class PaymentCardServiceUnitTest {
         when(paymentCardDao.savePaymentCard(any(PaymentCard.class))).thenReturn(card);
         when(paymentCardMapper.toDto(card)).thenReturn(cardDto);
 
-        final PaymentCardDto result = paymentCardService.createPaymentCard(cardDto);
+        final PaymentCardDto result = paymentCardService.createUserPaymentCard(1L, cardDto);
 
         assertNotNull(result);
         assertEquals("1234567890123456", result.getNumber());
@@ -94,7 +100,7 @@ class PaymentCardServiceUnitTest {
     void createPaymentCard_UserNotFound_ThrowsException() {
         when(userDao.findUserById(1L)).thenReturn(Optional.empty());
 
-        assertThrows(UserNotFoundException.class, () -> paymentCardService.createPaymentCard(cardDto));
+        assertThrows(UserNotFoundException.class, () -> paymentCardService.createUserPaymentCard(1L, cardDto));
     }
 
     @Test
@@ -103,25 +109,24 @@ class PaymentCardServiceUnitTest {
         when(userDao.findUserById(1L)).thenReturn(Optional.of(user));
         when(paymentCardDao.existsByNumber(anyString())).thenReturn(true);
 
-        assertThrows(DuplicatePaymentCardNumberException.class, () -> paymentCardService.createPaymentCard(cardDto));
+        assertThrows(DuplicatePaymentCardNumberException.class,
+                () -> paymentCardService.createUserPaymentCard(1L, cardDto));
     }
 
     @Test
     void getPaymentCardById_Success_ReturnsCardDto() {
+        when(paymentCardDao.existsByIdAndUserId(1L, 1L)).thenReturn(true);
         when(paymentCardDao.findPaymentCardById(1L)).thenReturn(Optional.of(card));
         when(paymentCardMapper.toDto(card)).thenReturn(cardDto);
 
-        final PaymentCardDto result = paymentCardService.getPaymentCardById(1L);
+        final PaymentCardDto result = paymentCardService.getUserPaymentCardById(1L, 1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-    }
-
-    @Test
-    void getPaymentCardById_NotFound_ThrowsException() {
-        when(paymentCardDao.findPaymentCardById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(PaymentCardNotFoundException.class, () -> paymentCardService.getPaymentCardById(99L));
+        assertEquals("1234567890123456", result.getNumber());
+        verify(paymentCardDao).existsByIdAndUserId(1L, 1L);
+        verify(paymentCardDao).findPaymentCardById(1L);
+        verify(paymentCardMapper).toDto(card);
     }
 
     @Test
@@ -146,14 +151,14 @@ class PaymentCardServiceUnitTest {
         updateDto.setHolder("Jane Doe");
         updateDto.setExpirationDate(LocalDate.now().plusYears(2));
         updateDto.setActive(true);
-        updateDto.setUser(userDto);
 
+        when(paymentCardDao.existsByIdAndUserId(1L, 1L)).thenReturn(true);
         when(paymentCardDao.findPaymentCardById(1L)).thenReturn(Optional.of(card));
         doNothing().when(paymentCardMapper).updatePaymentCardFromDto(eq(updateDto), any(PaymentCard.class));
         doNothing().when(paymentCardDao).updatePaymentCardById(any(PaymentCard.class));
         when(paymentCardMapper.toDto(card)).thenReturn(updateDto);
 
-        final PaymentCardDto result = paymentCardService.updatePaymentCard(updateDto);
+        final PaymentCardDto result = paymentCardService.updateUserPaymentCard(1L, updateDto);
 
         assertNotNull(result);
         assertEquals(updateDto.getId(), result.getId());
@@ -162,6 +167,7 @@ class PaymentCardServiceUnitTest {
         assertEquals(updateDto.getExpirationDate(), result.getExpirationDate());
         assertEquals(updateDto.getActive(), result.getActive());
 
+        verify(paymentCardDao).existsByIdAndUserId(1L, 1L);
         verify(paymentCardDao).findPaymentCardById(1L);
         verify(paymentCardMapper).updatePaymentCardFromDto(eq(updateDto), eq(card));
         verify(paymentCardDao).updatePaymentCardById(card);
@@ -170,19 +176,25 @@ class PaymentCardServiceUnitTest {
 
     @Test
     void activatePaymentCard_Success_ReturnsTrue() {
+        when(paymentCardDao.existsByIdAndUserId(1L, 1L)).thenReturn(true);
         when(paymentCardDao.activatePaymentCardById(1L)).thenReturn(1);
 
-        final boolean result = paymentCardService.activatePaymentCard(1L);
+        final boolean result = paymentCardService.activateUserPaymentCard(1L, 1L);
 
         assertTrue(result);
+        verify(paymentCardDao).existsByIdAndUserId(1L, 1L);
+        verify(paymentCardDao).activatePaymentCardById(1L);
     }
 
     @Test
-    void deactivatePaymentCard_NotFound_ReturnsFalse() {
-        when(paymentCardDao.deactivatePaymentCardById(99L)).thenReturn(0);
+    void deactivatePaymentCard_Success_ReturnsTrue() {
+        when(paymentCardDao.existsByIdAndUserId(1L, 1L)).thenReturn(true);
+        when(paymentCardDao.deactivatePaymentCardById(1L)).thenReturn(1);
 
-        final boolean result = paymentCardService.deactivatePaymentCard(99L);
+        final boolean result = paymentCardService.deactivateUserPaymentCard(1L, 1L);
 
-        assertFalse(result);
+        assertTrue(result);
+        verify(paymentCardDao).existsByIdAndUserId(1L, 1L);
+        verify(paymentCardDao).deactivatePaymentCardById(1L);
     }
 }

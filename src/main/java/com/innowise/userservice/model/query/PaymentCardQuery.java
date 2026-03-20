@@ -1,5 +1,9 @@
 package com.innowise.userservice.model.query;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class PaymentCardQuery {
     public static final String UPDATE_PAYMENT_CARD_BY_ID_JPQL = """
             UPDATE PaymentCard pc
@@ -28,6 +32,4 @@ public final class PaymentCardQuery {
             FROM PaymentCard pc
             WHERE pc.user.id = :userId
             """;
-
-    private PaymentCardQuery() { }
 }
