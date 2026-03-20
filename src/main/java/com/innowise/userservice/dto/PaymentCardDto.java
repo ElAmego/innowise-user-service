@@ -1,20 +1,29 @@
 package com.innowise.userservice.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.time.LocalDate;
 
+@NoArgsConstructor
+@AllArgsConstructor
+@Getter
+@Setter
 public class PaymentCardDto implements Serializable {
 
     @Serial
     private static final long serialVersionUID = 1L;
 
     private Long id;
-
-    @NotNull(message = "User is required")
-    private UserDto user;
 
     @NotBlank(message = "Card number is required")
     @Pattern(regexp = "^[0-9]{16}$", message = "Card number must be 16 digits")
@@ -29,64 +38,4 @@ public class PaymentCardDto implements Serializable {
     private LocalDate expirationDate;
 
     private Boolean active;
-
-    public PaymentCardDto() { }
-
-    public PaymentCardDto(Long id, UserDto user, String number, String holder, LocalDate expirationDate,
-                          Boolean active) {
-        this.id = id;
-        this.user = user;
-        this.number = number;
-        this.holder = holder;
-        this.expirationDate = expirationDate;
-        this.active = active;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public UserDto getUser() {
-        return user;
-    }
-
-    public void setUser(UserDto user) {
-        this.user = user;
-    }
-
-    public String getNumber() {
-        return number;
-    }
-
-    public void setNumber(String number) {
-        this.number = number;
-    }
-
-    public String getHolder() {
-        return holder;
-    }
-
-    public void setHolder(String holder) {
-        this.holder = holder;
-    }
-
-    public LocalDate getExpirationDate() {
-        return expirationDate;
-    }
-
-    public void setExpirationDate(LocalDate expirationDate) {
-        this.expirationDate = expirationDate;
-    }
-
-    public Boolean getActive() {
-        return active;
-    }
-
-    public void setActive(Boolean active) {
-        this.active = active;
-    }
 }
