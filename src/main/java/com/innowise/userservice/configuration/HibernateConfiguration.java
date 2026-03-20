@@ -52,7 +52,7 @@ public class HibernateConfiguration {
         return transactionManager;
     }
 
-        private Properties getHibernateProperties() {
+    private Properties getHibernateProperties() {
         final Properties properties = new Properties();
         properties.setProperty(AvailableSettings.DIALECT, hibernateDialect);
         properties.setProperty(AvailableSettings.SHOW_SQL, hibernateShowSql);

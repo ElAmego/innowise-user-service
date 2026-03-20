@@ -1,9 +1,13 @@
 package com.innowise.userservice.model.query;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class UserQuery {
     public static final String SAVE_USER_NATIVE = """
             INSERT INTO users (name, surname, email, birth_date, active, created_at, updated_at)
-            VALUES (:#{#user.name}, :#{#user.surname}, :#{#user.email}, :#{#user.birthDate}, :#{#user.active}, 
+            VALUES (:#{#user.name}, :#{#user.surname}, :#{#user.email}, :#{#user.birthDate}, :#{#user.active},
             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """;
 
@@ -29,6 +33,4 @@ public final class UserQuery {
             SET u.active = false, u.updatedAt = CURRENT_TIMESTAMP
             WHERE u.id = :id
             """;
-
-    private UserQuery() { }
 }

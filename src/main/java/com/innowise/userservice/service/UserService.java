@@ -11,32 +11,29 @@ import com.innowise.userservice.mapper.UserMapper;
 import com.innowise.userservice.model.dao.PaymentCardDao;
 import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.User;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.innowise.userservice.model.specification.UserSpecification;
+import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional
+@RequiredArgsConstructor
 public class UserService {
     private final UserDao userDao;
     private final PaymentCardDao paymentCardDao;
     private final UserMapper userMapper;
     private final PaymentCardMapper paymentCardMapper;
-
-    @Autowired
-    public UserService(UserDao userDao, PaymentCardDao paymentCardDao, UserMapper userMapper, PaymentCardMapper paymentCardMapper) {
-        this.userDao = userDao;
-        this.paymentCardDao = paymentCardDao;
-        this.userMapper = userMapper;
-        this.paymentCardMapper = paymentCardMapper;
-    }
 
     @CacheEvict(value = "userWithCards", allEntries = true)
     public boolean createUser(UserDto userDto) {
@@ -57,6 +54,15 @@ public class UserService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public Page<UserDto> findAll(String name, String surname, Pageable pageable) {
+        final Specification<User> spec = UserSpecification.byNameAndSurname(name, surname);
+
+        return userDao.findAll(spec, pageable)
+                .map(userMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
     public UserDto getUserById(Long id) {
         if (id == null) {
             throw new InvalidUserDataException("ID cannot be null");
@@ -74,6 +80,7 @@ public class UserService {
     }
 
     @Cacheable(value = "userWithCards", key = "#id")
+    @Transactional(readOnly = true)
     public UserWithCardsDto getUserWithCardsById(Long id) {
         if (id == null) {
             throw new InvalidUserDataException("ID cannot be null");
@@ -95,6 +102,7 @@ public class UserService {
         return new UserWithCardsDto(userDto, cards);
     }
 
+    @Transactional(readOnly = true)
     public Page<UserDto> getAllUsers(Pageable pageable) {
         if (pageable == null) {
             throw new InvalidUserDataException("Pageable cannot be null");

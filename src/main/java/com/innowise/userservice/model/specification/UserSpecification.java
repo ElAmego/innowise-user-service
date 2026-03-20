@@ -2,14 +2,15 @@ package com.innowise.userservice.model.specification;
 
 import com.innowise.userservice.model.entity.User;
 import jakarta.persistence.criteria.Predicate;
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class UserSpecification {
-
-    private UserSpecification() { }
 
     public static Specification<User> byNameAndSurname(String firstName, String lastName) {
         return (root, query, criteriaBuilder) -> {
