@@ -38,6 +38,5 @@ public interface UserDao extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    @Transactional(readOnly = true)
     boolean existsById(Long id);
 }

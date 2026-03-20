@@ -126,15 +126,10 @@ public class UserService {
 
         if (userOptional.isPresent()) {
             final User bdUser = userOptional.get();
+            userMapper.updateUserFromDto(userDto, bdUser);
+            userDao.updateUserById(bdUser);
 
-            if (!userDto.getEmail().equals(bdUser.getEmail())) {
-                userMapper.updateUserFromDto(userDto, bdUser);
-                userDao.updateUserById(bdUser);
-
-                return userMapper.toDto(bdUser);
-            } else {
-                throw new DuplicateEmailException(userDto.getEmail());
-            }
+            return userMapper.toDto(bdUser);
         } else {
             throw new UserNotFoundException(userDto.getId());
         }

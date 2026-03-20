@@ -62,7 +62,7 @@ public class PaymentCardService {
     }
 
     @Transactional(readOnly = true)
-    public PaymentCardDto getUserPaymentCardById(final Long userId, Long cardId) {
+    public PaymentCardDto getUserPaymentCardById(Long userId, Long cardId) {
         if (userId == null) {
             throw new InvalidUserDataException("userID cannot be null");
         }
@@ -102,19 +102,15 @@ public class PaymentCardService {
             throw new InvalidUserDataException("User ID cannot be null");
         }
 
-        if (userDao.existsById(userId)) {
-            final List<PaymentCard> paymentCardList = paymentCardDao.findAllByUserId(userId);
-            final List<PaymentCardDto> paymentCardDtoList = new ArrayList<>();
+        final List<PaymentCard> paymentCardList = paymentCardDao.findAllByUserId(userId);
+        final List<PaymentCardDto> paymentCardDtoList = new ArrayList<>();
 
-            for (final PaymentCard paymentCard: paymentCardList) {
-                final PaymentCardDto paymentCardDto = paymentCardMapper.toDto(paymentCard);
-                paymentCardDtoList.add(paymentCardDto);
-            }
-
-            return paymentCardDtoList;
-        } else {
-            throw new UserNotFoundException(userId);
+        for (final PaymentCard paymentCard: paymentCardList) {
+            final PaymentCardDto paymentCardDto = paymentCardMapper.toDto(paymentCard);
+            paymentCardDtoList.add(paymentCardDto);
         }
+
+        return paymentCardDtoList;
     }
 
     @Caching(evict = {
