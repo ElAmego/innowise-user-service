@@ -1,8 +1,6 @@
 package com.innowise.userservice.service;
 
-import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.dto.UserDto;
-import com.innowise.userservice.dto.UserWithCardsDto;
 import com.innowise.userservice.exception.custom.DuplicateEmailException;
 import com.innowise.userservice.exception.custom.InvalidUserDataException;
 import com.innowise.userservice.exception.custom.UserNotFoundException;
@@ -22,9 +20,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -81,25 +77,15 @@ public class UserService {
 
     @Cacheable(value = "userWithCards", key = "#id")
     @Transactional(readOnly = true)
-    public UserWithCardsDto getUserWithCardsById(Long id) {
+    public UserDto getUserWithCardsById(Long id) {
         if (id == null) {
             throw new InvalidUserDataException("ID cannot be null");
         }
 
-        final Optional<User> userOptional = userDao.findUserById(id);
-        if (userOptional.isEmpty()) {
-            throw new UserNotFoundException(id);
-        }
+        final User user = userDao.findWithCardsById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
 
-        final User user = userOptional.get();
-        final UserDto userDto = userMapper.toDto(user);
-
-        final List<PaymentCardDto> cards = paymentCardDao.findAllByUserId(id)
-                .stream()
-                .map(paymentCardMapper::toDto)
-                .collect(Collectors.toList());
-
-        return new UserWithCardsDto(userDto, cards);
+        return userMapper.toDtoWithCards(user);
     }
 
     @Transactional(readOnly = true)

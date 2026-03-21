@@ -1,9 +1,11 @@
 package com.innowise.userservice.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -40,4 +42,16 @@ public class UserDto implements Serializable {
     private String email;
 
     private Boolean active;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<PaymentCardDto> cards;
+
+    public UserDto(Long id, String name, String surname, LocalDate birthDate, String email, Boolean active) {
+        this.id = id;
+        this.name = name;
+        this.surname = surname;
+        this.birthDate = birthDate;
+        this.email = email;
+        this.active = active;
+    }
 }

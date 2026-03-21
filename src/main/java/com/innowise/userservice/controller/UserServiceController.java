@@ -2,9 +2,9 @@ package com.innowise.userservice.controller;
 
 import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.dto.UserDto;
-import com.innowise.userservice.dto.UserWithCardsDto;
 import com.innowise.userservice.service.PaymentCardService;
 import com.innowise.userservice.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,7 +42,7 @@ public class UserServiceController {
     }
 
     @PostMapping
-    public ResponseEntity<UserDto> createUser(@RequestBody UserDto userDto) {
+    public ResponseEntity<UserDto> createUser(@Valid @RequestBody UserDto userDto) {
         userService.createUser(userDto);
         return new ResponseEntity<>(HttpStatus.CREATED);
     }
@@ -65,7 +65,10 @@ public class UserServiceController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserDto> updateUser(@PathVariable("id") Long id, @RequestBody UserDto userDto) {
+    public ResponseEntity<UserDto> updateUser(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody UserDto userDto
+    ) {
         userDto.setId(id);
         final UserDto updatedUser = userService.updateUser(userDto);
         return ResponseEntity.ok(updatedUser);
@@ -84,15 +87,15 @@ public class UserServiceController {
     }
 
     @GetMapping("/{userId}/payment-card-with-user")
-    public ResponseEntity<UserWithCardsDto> getUserWithCards(@PathVariable("userId") Long userId) {
-        final UserWithCardsDto userWithCardsDto = userService.getUserWithCardsById(userId);
+    public ResponseEntity<UserDto> getUserWithCards(@PathVariable("userId") Long userId) {
+        final UserDto userWithCardsDto = userService.getUserWithCardsById(userId);
         return ResponseEntity.ok(userWithCardsDto);
     }
 
     @PostMapping("/{userId}/payment-card")
     public ResponseEntity<PaymentCardDto> createUserPaymentCard(
             @PathVariable("userId") Long userId,
-            @RequestBody PaymentCardDto paymentCardDto
+            @Valid @RequestBody PaymentCardDto paymentCardDto
     ) {
         final PaymentCardDto createdCard = paymentCardService.createUserPaymentCard(userId, paymentCardDto);
         return new ResponseEntity<>(createdCard, HttpStatus.CREATED);
@@ -127,7 +130,7 @@ public class UserServiceController {
     public ResponseEntity<PaymentCardDto> updatePaymentCard(
             @PathVariable("userId") Long userId,
             @PathVariable("cardId") Long cardId,
-            @RequestBody PaymentCardDto paymentCardDto
+            @Valid @RequestBody PaymentCardDto paymentCardDto
     ) {
         paymentCardDto.setId(cardId);
         final PaymentCardDto updatedCard = paymentCardService.updateUserPaymentCard(userId, paymentCardDto);

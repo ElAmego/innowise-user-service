@@ -5,6 +5,7 @@ import com.innowise.userservice.model.query.UserQuery;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -39,4 +40,7 @@ public interface UserDao extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     boolean existsById(Long id);
+
+    @EntityGraph("User.withCards")
+    Optional<User> findWithCardsById(Long id);
 }

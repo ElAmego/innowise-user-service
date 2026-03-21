@@ -1,6 +1,5 @@
 package com.innowise.userservice.model.dao;
 
-import com.innowise.userservice.exception.custom.PaymentCardLimitExceededException;
 import com.innowise.userservice.model.entity.PaymentCard;
 import com.innowise.userservice.model.query.PaymentCardQuery;
 import org.springframework.data.domain.Page;
@@ -17,18 +16,7 @@ import java.util.Optional;
 
 @Repository
 public interface PaymentCardDao extends JpaRepository<PaymentCard, Long> {
-    int MAX_CARDS_PER_USER = 5;
-
-    default PaymentCard savePaymentCard(PaymentCard paymentCard) {
-        final Long userId = paymentCard.getUser().getId();
-        final long userCardsValue = countPaymentCardByUserId(userId);
-
-        if (userCardsValue >= MAX_CARDS_PER_USER) {
-            throw new PaymentCardLimitExceededException(userId, (int) userCardsValue, MAX_CARDS_PER_USER);
-        }
-
-        return save(paymentCard);
-    }
+    PaymentCard save(PaymentCard paymentCard);
 
     Optional<PaymentCard> findPaymentCardById(Long id);
 

@@ -8,6 +8,7 @@ import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.PaymentCard;
 import com.innowise.userservice.model.entity.User;
 import com.innowise.userservice.model.specification.PaymentCardSpecification;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
@@ -17,7 +18,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +25,7 @@ import java.util.Optional;
 @Transactional
 @RequiredArgsConstructor
 public class PaymentCardService {
+    private static final int MAX_CARDS_PER_USER = 5;
     private final PaymentCardDao paymentCardDao;
     private final UserDao userDao;
     private final PaymentCardMapper paymentCardMapper;
@@ -39,7 +40,7 @@ public class PaymentCardService {
             throw new InvalidPaymentCardDataException("User ID is required");
         }
 
-        final Optional<User> userOptional = userDao.findUserById(userId);
+        final Optional<User> userOptional = userDao.findWithCardsById(userId);
 
         if (userOptional.isPresent()) {
             final PaymentCard paymentCard = paymentCardMapper.toEntity(paymentCardDto);
@@ -48,11 +49,18 @@ public class PaymentCardService {
 
             if (!isExist) {
                 final User user = userOptional.get();
-                paymentCard.setActive(true);
-                paymentCard.setUser(user);
-                final PaymentCard addedPaymentCard = paymentCardDao.savePaymentCard(paymentCard);
+                final int paymentCardsLength = user.getPaymentCards().size();
 
-                return paymentCardMapper.toDto(addedPaymentCard);
+                if (paymentCardsLength < MAX_CARDS_PER_USER) {
+                    paymentCard.setActive(true);
+                    user.addPaymentCard(paymentCard);
+                    userDao.save(user);
+
+                    return paymentCardMapper.toDto(paymentCard);
+                } else {
+                    throw new PaymentCardLimitExceededException(userId, paymentCardsLength, MAX_CARDS_PER_USER);
+                }
+
             } else {
                 throw new DuplicatePaymentCardNumberException(paymentCardDto.getNumber());
             }
@@ -71,22 +79,15 @@ public class PaymentCardService {
             throw new InvalidPaymentCardDataException("cardID cannot be null");
         }
 
-        final boolean isMatch = paymentCardDao.existsByIdAndUserId(cardId, userId);
+        final User user = userDao.findWithCardsById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (isMatch) {
-            final Optional<PaymentCard> paymentCardOptional = paymentCardDao.findPaymentCardById(cardId);
+        final PaymentCard paymentCard = user.getPaymentCards().stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElseThrow(() -> new PaymentCardNotFoundException(cardId));
 
-            if (paymentCardOptional.isPresent()) {
-                final PaymentCard paymentCard = paymentCardOptional.get();
-
-                return paymentCardMapper.toDto(paymentCard);
-            } else {
-                throw new PaymentCardNotFoundException(cardId);
-            }
-
-        } else {
-            throw new PaymentCardNotFoundException("User's payment card wasn't find");
-        }
+        return paymentCardMapper.toDto(paymentCard);
     }
 
     @Transactional(readOnly = true)
@@ -102,15 +103,12 @@ public class PaymentCardService {
             throw new InvalidUserDataException("User ID cannot be null");
         }
 
-        final List<PaymentCard> paymentCardList = paymentCardDao.findAllByUserId(userId);
-        final List<PaymentCardDto> paymentCardDtoList = new ArrayList<>();
+        final User user = userDao.findWithCardsById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
-        for (final PaymentCard paymentCard: paymentCardList) {
-            final PaymentCardDto paymentCardDto = paymentCardMapper.toDto(paymentCard);
-            paymentCardDtoList.add(paymentCardDto);
-        }
-
-        return paymentCardDtoList;
+        return user.getPaymentCards().stream()
+                .map(paymentCardMapper::toDto)
+                .collect(Collectors.toList());
     }
 
     @Caching(evict = {
@@ -121,29 +119,28 @@ public class PaymentCardService {
             throw new InvalidPaymentCardDataException("Payment card data cannot be null");
         }
 
+        final Long cardId = paymentCardDto.getId();
+
+        if (cardId == null) {
+            throw new InvalidPaymentCardDataException("Card ID cannot be null");
+        }
+
         if (userId == null) {
             throw new InvalidUserDataException("userId cannot be null");
         }
 
-        final Long paymentCardDtoId = paymentCardDto.getId();
-        final boolean isMatch = paymentCardDao.existsByIdAndUserId(paymentCardDtoId, userId);
+        final User user = userDao.findWithCardsById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (isMatch) {
-            final Optional<PaymentCard> paymentCardOptional = paymentCardDao.findPaymentCardById(paymentCardDtoId);
+        final PaymentCard existingCard = user.getPaymentCards().stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElseThrow(() -> new PaymentCardNotFoundException(cardId));
 
-            if (paymentCardOptional.isPresent()) {
-                final PaymentCard bdPaymentCard = paymentCardOptional.get();
+        paymentCardMapper.updatePaymentCardFromDto(paymentCardDto, existingCard);
+        userDao.save(user);
 
-                paymentCardMapper.updatePaymentCardFromDto(paymentCardDto, bdPaymentCard);
-                paymentCardDao.updatePaymentCardById(bdPaymentCard);
-
-                return paymentCardMapper.toDto(bdPaymentCard);
-            } else {
-                throw new PaymentCardNotFoundException(paymentCardDto.getId());
-            }
-        } else {
-            throw new PaymentCardNotFoundException("User's payment card wasn't find");
-        }
+        return paymentCardMapper.toDto(existingCard);
     }
 
     public boolean activateUserPaymentCard(Long userId, Long cardId) {
@@ -155,43 +152,43 @@ public class PaymentCardService {
             throw new InvalidPaymentCardDataException("cardId cannot be null");
         }
 
-        final boolean isMatch = paymentCardDao.existsByIdAndUserId(cardId, userId);
+        final User user = userDao.findWithCardsById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (isMatch) {
-            final boolean isUpdated = paymentCardDao.activatePaymentCardById(cardId) != 0;
+        final PaymentCard paymentCard = user.getPaymentCards().stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElseThrow(() -> new PaymentCardNotFoundException(cardId));
 
-            if (isUpdated) {
-                evictUserWithCardsCache(userId);
-            }
+        paymentCard.setActive(true);
+        userDao.save(user);
+        evictUserWithCardsCache(userId);
 
-            return isUpdated;
-        } else {
-            throw new PaymentCardNotFoundException("User's payment card wasn't find");
-        }
+        return true;
     }
 
     public boolean deactivateUserPaymentCard(Long userId, Long cardId) {
         if (userId == null) {
-            throw new InvalidUserDataException("ID cannot be null");
+            throw new InvalidUserDataException("userId cannot be null");
         }
 
         if (cardId == null) {
-            throw new InvalidPaymentCardDataException("ID cannot be null");
+            throw new InvalidPaymentCardDataException("cardId cannot be null");
         }
 
-        final boolean isMatch = paymentCardDao.existsByIdAndUserId(cardId, userId);
+        final User user = userDao.findWithCardsById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
 
-        if (isMatch) {
-            final boolean isUpdated = paymentCardDao.deactivatePaymentCardById(cardId) != 0;
+        final PaymentCard paymentCard = user.getPaymentCards().stream()
+                .filter(card -> card.getId().equals(cardId))
+                .findFirst()
+                .orElseThrow(() -> new PaymentCardNotFoundException(cardId));
 
-            if (isUpdated) {
-                evictUserWithCardsCache(userId);
-            }
+        paymentCard.setActive(false);
+        userDao.save(user);
+        evictUserWithCardsCache(userId);
 
-            return isUpdated;
-        } else {
-            throw new PaymentCardNotFoundException("User's payment card wasn't find");
-        }
+        return true;
     }
 
     @CacheEvict(value = "userWithCards", key = "#userId")

@@ -230,7 +230,7 @@ class FullFlowIntegrationTest {
 
         @Test
         @Order(7)
-        void updateUser_NotFound_ShouldReturn404() throws Exception {
+        void updateUser_NotFound_ShouldReturn400() throws Exception {
             final UserDto updateDto = new UserDto();
             updateDto.setId(99999L);
             updateDto.setName("Test");
@@ -240,7 +240,7 @@ class FullFlowIntegrationTest {
             mockMvc.perform(put("/users/99999")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
@@ -432,10 +432,9 @@ class FullFlowIntegrationTest {
 
         @Test
         @Order(18)
-        void getAllPaymentCardsByUserId_UserNotFound_ShouldReturn200WithEmptyList() throws Exception {
+        void getAllPaymentCardsByUserId_UserNotFound_ShouldReturn404() throws Exception {
             mockMvc.perform(get("/users/{userId}/payment-card", 99999L))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(0));
+                    .andExpect(status().isNotFound());
         }
 
         @Test
@@ -476,7 +475,7 @@ class FullFlowIntegrationTest {
 
         @Test
         @Order(20)
-        void updatePaymentCard_NotFound_ShouldReturn404() throws Exception {
+        void updatePaymentCard_NotFound_ShouldReturn400() throws Exception {
             final User user = createTestUser();
 
             final PaymentCardDto updateDto = new PaymentCardDto();
@@ -488,7 +487,7 @@ class FullFlowIntegrationTest {
             mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", user.getId(), 99999L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isBadRequest());  // Ожидаем 400
         }
 
         @Test

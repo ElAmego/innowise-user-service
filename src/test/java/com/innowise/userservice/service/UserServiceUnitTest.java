@@ -2,7 +2,6 @@ package com.innowise.userservice.service;
 
 import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.dto.UserDto;
-import com.innowise.userservice.dto.UserWithCardsDto;
 import com.innowise.userservice.exception.custom.DuplicateEmailException;
 import com.innowise.userservice.exception.custom.InvalidUserDataException;
 import com.innowise.userservice.exception.custom.UserNotFoundException;
@@ -39,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -147,19 +147,37 @@ class UserServiceUnitTest {
 
     @Test
     void getUserWithCardsById_Success_ReturnsUserWithCardsDto() {
-        List<PaymentCard> cards = List.of(card);
+        UserDto userDtoWithCards = new UserDto();
+        userDtoWithCards.setId(1L);
+        userDtoWithCards.setName("John");
+        userDtoWithCards.setSurname("Doe");
+        userDtoWithCards.setEmail("john@test.com");
+        userDtoWithCards.setBirthDate(LocalDate.of(1990, 1, 1));
+        userDtoWithCards.setActive(true);
 
-        when(userDao.findUserById(1L)).thenReturn(Optional.of(user));
-        when(paymentCardDao.findAllByUserId(1L)).thenReturn(cards);
-        when(userMapper.toDto(user)).thenReturn(userDto);
-        when(paymentCardMapper.toDto(card)).thenReturn(cardDto);
+        PaymentCardDto cardDto = new PaymentCardDto();
+        cardDto.setId(1L);
+        cardDto.setNumber("1234567890123456");
+        cardDto.setHolder("John Doe");
+        cardDto.setExpirationDate(LocalDate.now().plusYears(3));
+        cardDto.setActive(true);
 
-        final UserWithCardsDto result = userService.getUserWithCardsById(1L);
+        userDtoWithCards.setCards(List.of(cardDto));
+
+        when(userDao.findWithCardsById(1L)).thenReturn(Optional.of(user));
+        when(userMapper.toDtoWithCards(user)).thenReturn(userDtoWithCards);
+
+        final UserDto result = userService.getUserWithCardsById(1L);
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
+        assertNotNull(result.getCards());
         assertEquals(1, result.getCards().size());
         assertEquals("1234567890123456", result.getCards().get(0).getNumber());
+
+        verify(userDao).findWithCardsById(1L);
+        verify(userMapper).toDtoWithCards(user);
+        verifyNoMoreInteractions(userDao, userMapper);
     }
 
     @Test
