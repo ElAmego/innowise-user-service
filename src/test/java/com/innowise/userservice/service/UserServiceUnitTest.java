@@ -26,12 +26,20 @@ import org.springframework.data.domain.Pageable;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.domain.Specification;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceUnitTest {
@@ -216,5 +224,33 @@ class UserServiceUnitTest {
     @Test
     void getAllUsers_NullPageable_ThrowsException() {
         assertThrows(InvalidUserDataException.class, () -> userService.getAllUsers(null));
+    }
+
+    @Test
+    void findAll_WithNameAndSurname_ReturnsFilteredPage() {
+        final Pageable pageable = PageRequest.of(0, 10);
+        final String name = "John";
+        final String surname = "Doe";
+        Page<User> userPage = new PageImpl<>(List.of(user));
+
+        when(userDao.findAll(any(Specification.class), eq(pageable))).thenReturn(userPage);
+        when(userMapper.toDto(user)).thenReturn(userDto);
+
+        final Page<UserDto> result = userService.findAll(name, surname, pageable);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals("John", result.getContent().get(0).getName());
+        verify(userDao).findAll(any(Specification.class), eq(pageable));
+    }
+
+    @Test
+    void deactivateUser_Success_ReturnsTrue() {
+        when(userDao.deactivateUserById(1L)).thenReturn(1);
+
+        final boolean result = userService.deactivateUser(1L);
+
+        assertTrue(result);
+        verify(userDao).deactivateUserById(1L);
     }
 }

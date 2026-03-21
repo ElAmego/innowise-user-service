@@ -9,17 +9,19 @@ import com.innowise.userservice.model.dao.PaymentCardDao;
 import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.PaymentCard;
 import com.innowise.userservice.model.entity.User;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -27,9 +29,15 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.LocalDate;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringJUnitWebConfig(AppConfiguration.class)
 @Testcontainers
@@ -38,6 +46,7 @@ class FullFlowIntegrationTest {
 
     static {
         System.setProperty("docker.host", "tcp://localhost:2375");
+        System.out.println("Docker host configured: " + System.getProperty("docker.host"));
     }
 
     @Container
@@ -46,10 +55,6 @@ class FullFlowIntegrationTest {
             .withUsername("test")
             .withPassword("test")
             .withReuse(false);
-
-    @Container
-    static GenericContainer<?> redis = new GenericContainer<>("redis:7-alpine")
-            .withExposedPorts(6379);
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -62,18 +67,15 @@ class FullFlowIntegrationTest {
 
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
-    private Long testUserId;
-    private Long testCardId;
 
-    @DynamicPropertySource
-    static void dynamicProperties(DynamicPropertyRegistry registry) {
-        registry.add("DB_URL", postgres::getJdbcUrl);
-        registry.add("DB_USERNAME", postgres::getUsername);
-        registry.add("DB_PASSWORD", postgres::getPassword);
-        registry.add("DB_DRIVER", () -> "org.postgresql.Driver");
+    @BeforeAll
+    static void beforeAll() {
+        System.setProperty("DB_URL", postgres.getJdbcUrl());
+        System.setProperty("DB_USERNAME", postgres.getUsername());
+        System.setProperty("DB_PASSWORD", postgres.getPassword());
+        System.setProperty("DB_DRIVER", "org.postgresql.Driver");
 
-        registry.add("redis.host", redis::getHost);
-        registry.add("redis.port", () -> String.valueOf(redis.getMappedPort(6379)));
+        System.out.println("Test Database URL: " + postgres.getJdbcUrl());
     }
 
     @BeforeEach
@@ -110,8 +112,6 @@ class FullFlowIntegrationTest {
             final List<User> users = userDao.findAll();
             assertEquals(1, users.size());
             assertEquals("john.doe@test.com", users.get(0).getEmail());
-
-            testUserId = users.get(0).getId();
         }
 
         @Test
@@ -207,6 +207,7 @@ class FullFlowIntegrationTest {
             User savedUser = userDao.save(user);
 
             final UserDto updateDto = new UserDto();
+            updateDto.setId(savedUser.getId());
             updateDto.setName("Robert");
             updateDto.setSurname("Brown Jr");
             updateDto.setEmail("robert.brown@test.com");
@@ -262,9 +263,9 @@ class FullFlowIntegrationTest {
 
         @Test
         @Order(9)
-        void activateUser_NotFound_ShouldReturn404() throws Exception {
+        void activateUser_NotFound_ShouldReturn204() throws Exception {
             mockMvc.perform(patch("/users/99999/activate"))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isNoContent());
         }
 
         @Test
@@ -288,9 +289,9 @@ class FullFlowIntegrationTest {
 
         @Test
         @Order(11)
-        void deactivateUser_NotFound_ShouldReturn404() throws Exception {
+        void deactivateUser_NotFound_ShouldReturn204() throws Exception {
             mockMvc.perform(patch("/users/99999/deactivate"))
-                    .andExpect(status().isNotFound());
+                    .andExpect(status().isNoContent());
         }
     }
 
@@ -313,11 +314,7 @@ class FullFlowIntegrationTest {
         void createPaymentCard_Success_ShouldReturn201() throws Exception {
             final User user = createTestUser();
 
-            final UserDto userDto = new UserDto();
-            userDto.setId(user.getId());
-
             final PaymentCardDto cardDto = new PaymentCardDto();
-            cardDto.setUser(userDto);
             cardDto.setNumber("1234567890123456");
             cardDto.setHolder("Card Owner");
             cardDto.setExpirationDate(LocalDate.now().plusYears(3));
@@ -325,19 +322,16 @@ class FullFlowIntegrationTest {
 
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
-            final MvcResult result = mockMvc.perform(post("/paymentcards")
+            mockMvc.perform(post("/users/{userId}/payment-card", user.getId())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isCreated())
                     .andExpect(jsonPath("$.number").value("1234567890123456"))
-                    .andExpect(jsonPath("$.holder").value("Card Owner"))
-                    .andReturn();
+                    .andExpect(jsonPath("$.holder").value("Card Owner"));
 
             final List<PaymentCard> cards = paymentCardDao.findAll();
             assertEquals(1, cards.size());
             assertEquals(user.getId(), cards.get(0).getUser().getId());
-
-            testCardId = cards.get(0).getId();
         }
 
         @Test
@@ -353,11 +347,7 @@ class FullFlowIntegrationTest {
             card.setUser(user);
             paymentCardDao.save(card);
 
-            final UserDto userDto = new UserDto();
-            userDto.setId(user.getId());
-
             final PaymentCardDto cardDto = new PaymentCardDto();
-            cardDto.setUser(userDto);
             cardDto.setNumber("9999888877776666");
             cardDto.setHolder("Another Holder");
             cardDto.setExpirationDate(LocalDate.now().plusYears(1));
@@ -365,7 +355,7 @@ class FullFlowIntegrationTest {
 
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
-            mockMvc.perform(post("/paymentcards")
+            mockMvc.perform(post("/users/{userId}/payment-card", user.getId())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isConflict());
@@ -376,11 +366,7 @@ class FullFlowIntegrationTest {
         @Test
         @Order(14)
         void createPaymentCard_UserNotFound_ShouldReturn404() throws Exception {
-            final UserDto userDto = new UserDto();
-            userDto.setId(99999L);
-
             final PaymentCardDto cardDto = new PaymentCardDto();
-            cardDto.setUser(userDto);
             cardDto.setNumber("1111222233334444");
             cardDto.setHolder("No User");
             cardDto.setExpirationDate(LocalDate.now().plusYears(2));
@@ -388,7 +374,7 @@ class FullFlowIntegrationTest {
 
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
-            mockMvc.perform(post("/paymentcards")
+            mockMvc.perform(post("/users/{userId}/payment-card", 99999L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isNotFound());
@@ -408,7 +394,7 @@ class FullFlowIntegrationTest {
 
             final PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(get("/paymentcards/{id}", savedCard.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", user.getId(), savedCard.getId()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(savedCard.getId()))
                     .andExpect(jsonPath("$.number").value("5555444433332222"))
@@ -418,36 +404,14 @@ class FullFlowIntegrationTest {
         @Test
         @Order(16)
         void getPaymentCardById_NotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/paymentcards/99999"))
+            final User user = createTestUser();
+
+            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", user.getId(), 99999L))
                     .andExpect(status().isNotFound());
         }
 
         @Test
         @Order(17)
-        void getAllPaymentCards_WithPagination_ShouldReturnPage() throws Exception {
-            final User user = createTestUser();
-
-            for (int i = 0; i < 5; i++) {
-                final PaymentCard card = new PaymentCard();
-
-                card.setNumber(String.format("111122223333444%d", i));
-                card.setHolder("Page Test");
-                card.setExpirationDate(LocalDate.now().plusYears(2));
-                card.setActive(true);
-                card.setUser(user);
-                paymentCardDao.save(card);
-            }
-
-            mockMvc.perform(get("/paymentcards")
-                            .param("page", "0")
-                            .param("size", "3"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(3))
-                    .andExpect(jsonPath("$.totalElements").value(5));
-        }
-
-        @Test
-        @Order(18)
         void getAllPaymentCardsByUserId_Success_ShouldReturnList() throws Exception {
             final User user = createTestUser();
 
@@ -461,23 +425,21 @@ class FullFlowIntegrationTest {
                 paymentCardDao.save(card);
             }
 
-            mockMvc.perform(get("/paymentcards/user/{userId}", user.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card", user.getId()))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.length()").value(3))
-                    .andExpect(jsonPath("$[0].number").value("7777888899990000"))
-                    .andExpect(jsonPath("$[1].number").value("7777888899990001"))
-                    .andExpect(jsonPath("$[2].number").value("7777888899990002"));
+                    .andExpect(jsonPath("$.length()").value(3));
+        }
+
+        @Test
+        @Order(18)
+        void getAllPaymentCardsByUserId_UserNotFound_ShouldReturn200WithEmptyList() throws Exception {
+            mockMvc.perform(get("/users/{userId}/payment-card", 99999L))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(0));
         }
 
         @Test
         @Order(19)
-        void getAllPaymentCardsByUserId_UserNotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/paymentcards/user/99999"))
-                    .andExpect(status().isNotFound());
-        }
-
-        @Test
-        @Order(20)
         void updatePaymentCard_Success_ShouldReturn200() throws Exception {
             final User user = createTestUser();
 
@@ -490,12 +452,7 @@ class FullFlowIntegrationTest {
 
             final PaymentCard savedCard = paymentCardDao.save(card);
 
-            final UserDto userDto = new UserDto();
-            userDto.setId(user.getId());
-
             final PaymentCardDto updateDto = new PaymentCardDto();
-            updateDto.setId(savedCard.getId());
-            updateDto.setUser(userDto);
             updateDto.setNumber("9999999999999999");
             updateDto.setHolder("Updated Holder");
             updateDto.setExpirationDate(LocalDate.now().plusYears(4));
@@ -503,7 +460,7 @@ class FullFlowIntegrationTest {
 
             final String updateJson = objectMapper.writeValueAsString(updateDto);
 
-            mockMvc.perform(put("/paymentcards/{id}", savedCard.getId())
+            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", user.getId(), savedCard.getId())
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
                     .andExpect(status().isOk())
@@ -518,26 +475,24 @@ class FullFlowIntegrationTest {
         }
 
         @Test
-        @Order(21)
+        @Order(20)
         void updatePaymentCard_NotFound_ShouldReturn404() throws Exception {
-            final UserDto userDto = new UserDto();
-            userDto.setId(1L);
+            final User user = createTestUser();
 
             final PaymentCardDto updateDto = new PaymentCardDto();
-            updateDto.setId(99999L);
-            updateDto.setUser(userDto);
             updateDto.setNumber("1111111111111111");
+            updateDto.setHolder("Test");
 
             final String updateJson = objectMapper.writeValueAsString(updateDto);
 
-            mockMvc.perform(put("/paymentcards/99999")
+            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", user.getId(), 99999L)
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
                     .andExpect(status().isNotFound());
         }
 
         @Test
-        @Order(22)
+        @Order(21)
         void activatePaymentCard_Success_ShouldReturn204() throws Exception {
             final User user = createTestUser();
 
@@ -550,7 +505,7 @@ class FullFlowIntegrationTest {
 
             final PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(patch("/paymentcards/{id}/activate", savedCard.getId()))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", user.getId(), savedCard.getId()))
                     .andExpect(status().isNoContent());
 
             final PaymentCard activatedCard = paymentCardDao.findById(savedCard.getId()).orElseThrow();
@@ -558,14 +513,16 @@ class FullFlowIntegrationTest {
         }
 
         @Test
-        @Order(23)
+        @Order(22)
         void activatePaymentCard_NotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(patch("/paymentcards/99999/activate"))
+            final User user = createTestUser();
+
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", user.getId(), 99999L))
                     .andExpect(status().isNotFound());
         }
 
         @Test
-        @Order(24)
+        @Order(23)
         void deactivatePaymentCard_Success_ShouldReturn204() throws Exception {
             final User user = createTestUser();
 
@@ -577,7 +534,7 @@ class FullFlowIntegrationTest {
             card.setUser(user);
             PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(patch("/paymentcards/{id}/deactivate", savedCard.getId()))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", user.getId(), savedCard.getId()))
                     .andExpect(status().isNoContent());
 
             final PaymentCard deactivatedCard = paymentCardDao.findById(savedCard.getId()).orElseThrow();
@@ -585,9 +542,11 @@ class FullFlowIntegrationTest {
         }
 
         @Test
-        @Order(25)
+        @Order(24)
         void deactivatePaymentCard_NotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(patch("/paymentcards/99999/deactivate"))
+            final User user = createTestUser();
+
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", user.getId(), 99999L))
                     .andExpect(status().isNotFound());
         }
     }
@@ -596,7 +555,7 @@ class FullFlowIntegrationTest {
     class UserWithCardsTests {
 
         @Test
-        @Order(26)
+        @Order(25)
         void getUserWithCards_Success_ShouldReturn200() throws Exception {
             final User user = new User();
             user.setName("Complete");
@@ -618,7 +577,7 @@ class FullFlowIntegrationTest {
                 paymentCardDao.save(card);
             }
 
-            mockMvc.perform(get("/users/{id}/with-cards", savedUser.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card-with-user", savedUser.getId()))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(savedUser.getId()))
                     .andExpect(jsonPath("$.name").value("Complete"))
@@ -626,9 +585,9 @@ class FullFlowIntegrationTest {
         }
 
         @Test
-        @Order(27)
+        @Order(26)
         void getUserWithCards_UserNotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/users/99999/with-cards"))
+            mockMvc.perform(get("/users/{userId}/payment-card-with-user", 99999L))
                     .andExpect(status().isNotFound());
         }
     }

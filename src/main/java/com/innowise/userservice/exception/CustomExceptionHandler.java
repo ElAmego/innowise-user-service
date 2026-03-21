@@ -1,6 +1,12 @@
 package com.innowise.userservice.exception;
 
-import com.innowise.userservice.exception.custom.*;
+import com.innowise.userservice.exception.custom.DuplicateEmailException;
+import com.innowise.userservice.exception.custom.DuplicatePaymentCardNumberException;
+import com.innowise.userservice.exception.custom.InvalidPaymentCardDataException;
+import com.innowise.userservice.exception.custom.InvalidUserDataException;
+import com.innowise.userservice.exception.custom.PaymentCardLimitExceededException;
+import com.innowise.userservice.exception.custom.PaymentCardNotFoundException;
+import com.innowise.userservice.exception.custom.UserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;

@@ -1,9 +1,12 @@
 package com.innowise.userservice.mapper;
 
-
 import com.innowise.userservice.dto.UserDto;
 import com.innowise.userservice.model.entity.User;
-import org.mapstruct.*;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
 @Mapper(componentModel = "spring")
 public interface UserMapper {

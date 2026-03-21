@@ -2,12 +2,14 @@ package com.innowise.userservice.mapper;
 
 import com.innowise.userservice.dto.PaymentCardDto;
 import com.innowise.userservice.model.entity.PaymentCard;
-import org.mapstruct.*;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
 
-@Mapper(componentModel = "spring", uses = {UserMapper.class})
+@Mapper(componentModel = "spring")
 public interface PaymentCardMapper {
-
-    @Mapping(target = "user", source = "user")
     PaymentCardDto toDto(PaymentCard card);
 
     @Mapping(target = "id", ignore = true)
