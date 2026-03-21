@@ -58,7 +58,7 @@ jobs:
           DB_PASSWORD: test
 
       - name: SonarCloud Analysis
-        uses: SonarSource/sonarqube-scan-action@v4.1.0
+        uses: SonarSource/sonarqube-scan-action@v4
         with:
           projectBaseDir: .
         env:
