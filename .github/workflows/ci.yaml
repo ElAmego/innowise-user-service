@@ -48,21 +48,18 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+          cache: maven
 
-      - name: Build with maven
-        run: mvn clean compile
-
-      - name: Run tests
-        run: mvn test
+      - name: Build and test
+        run: mvn clean verify
         env:
           DB_URL: jdbc:postgresql://localhost:5432/testdb
           DB_USERNAME: test
           DB_PASSWORD: test
 
       - name: SonarCloud Analysis
-        uses: SonarSource/sonarqube-scan-action@v6
+        run: mvn sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }}
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package WAR
