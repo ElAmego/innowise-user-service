@@ -2,7 +2,11 @@ name: CI Pipeline
 
 on:
   push:
+    branches:
+      - "**"
   pull_request:
+    branches:
+      - "**"
 
 jobs:
   build:
@@ -54,7 +58,7 @@ jobs:
           DB_PASSWORD: test
 
       - name: SonarCloud Analysis
-        uses: SonarSource/sonarcloud-github-action@v4
+        uses: SonarSource/sonarqube-scan-action@v4.1.0
         with:
           projectBaseDir: .
         env:
