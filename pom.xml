@@ -35,6 +35,7 @@
         <hamcrest.version>3.0</hamcrest.version>
         <json.path.version>3.0.0</json.path.version>
         <jacoco.version>0.8.14</jacoco.version>
+        <sonar.organization>elamego</sonar.organization>
     </properties>
 
     <dependencies>
