@@ -58,8 +58,9 @@ jobs:
           DB_PASSWORD: test
 
       - name: SonarCloud Analysis
-        run: mvn sonar:sonar -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+        uses: sonarsource/sonarcloud-github-action@v4.0.1
         env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package WAR
