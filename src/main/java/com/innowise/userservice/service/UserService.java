@@ -11,6 +11,7 @@ import com.innowise.userservice.model.dao.UserDao;
 import com.innowise.userservice.model.entity.User;
 import com.innowise.userservice.model.specification.UserSpecification;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
@@ -84,6 +85,8 @@ public class UserService {
 
         final User user = userDao.findWithCardsById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
+
+        Hibernate.initialize(user.getPaymentCards());
 
         return userMapper.toDtoWithCards(user);
     }

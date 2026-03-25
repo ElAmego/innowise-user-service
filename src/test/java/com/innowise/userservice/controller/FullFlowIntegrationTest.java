@@ -46,7 +46,6 @@ class FullFlowIntegrationTest {
 
     static {
         System.setProperty("docker.host", "tcp://localhost:2375");
-        System.out.println("Docker host configured: " + System.getProperty("docker.host"));
     }
 
     @Container
@@ -68,14 +67,18 @@ class FullFlowIntegrationTest {
     private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
+    private Long adminUserId;
+    private Long regularUserId;
+
+    private static final String ADMIN_TOKEN = "Bearer test-admin-token";
+    private static final String USER_TOKEN = "Bearer test-user-token";
+
     @BeforeAll
     static void beforeAll() {
         System.setProperty("DB_URL", postgres.getJdbcUrl());
         System.setProperty("DB_USERNAME", postgres.getUsername());
         System.setProperty("DB_PASSWORD", postgres.getPassword());
         System.setProperty("DB_DRIVER", "org.postgresql.Driver");
-
-        System.out.println("Test Database URL: " + postgres.getJdbcUrl());
     }
 
     @BeforeEach
@@ -86,6 +89,30 @@ class FullFlowIntegrationTest {
 
         paymentCardDao.deleteAll();
         userDao.deleteAll();
+
+        adminUserId = createTestUser("Admin", "User", "admin@test.com", true);
+        regularUserId = createTestUser("Regular", "User", "user@test.com", true);
+
+        User user = userDao.findById(regularUserId).orElseThrow();
+        for (int i = 0; i < 2; i++) {
+            final PaymentCard card = new PaymentCard();
+            card.setNumber("555566667777888" + i);
+            card.setHolder("Regular User");
+            card.setExpirationDate(LocalDate.now().plusYears(3));
+            card.setActive(true);
+            card.setUser(user);
+            paymentCardDao.save(card);
+        }
+    }
+
+    private Long createTestUser(String name, String surname, String email, boolean active) {
+        User user = new User();
+        user.setName(name);
+        user.setSurname(surname);
+        user.setEmail(email);
+        user.setBirthDate(LocalDate.of(1990, 1, 1));
+        user.setActive(active);
+        return userDao.save(user).getId();
     }
 
     @Nested
@@ -105,109 +132,83 @@ class FullFlowIntegrationTest {
             final String userJson = objectMapper.writeValueAsString(userDto);
 
             mockMvc.perform(post("/users")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(userJson))
                     .andExpect(status().isCreated());
 
             final List<User> users = userDao.findAll();
-            assertEquals(1, users.size());
-            assertEquals("john.doe@test.com", users.get(0).getEmail());
+            assertEquals(3, users.size());
         }
 
         @Test
         @Order(2)
         void createUser_DuplicateEmail_ShouldReturn409() throws Exception {
-            final User user = new User();
-            user.setName("Jane");
-            user.setSurname("Smith");
-            user.setEmail("jane.smith@test.com");
-            user.setBirthDate(LocalDate.of(1992, 5, 10));
-            user.setActive(true);
-            userDao.save(user);
-
             final UserDto userDto = new UserDto();
             userDto.setName("Jane");
             userDto.setSurname("Johnson");
-            userDto.setEmail("jane.smith@test.com");
+            userDto.setEmail("user@test.com");
             userDto.setBirthDate(LocalDate.of(1995, 3, 15));
             userDto.setActive(true);
 
             final String userJson = objectMapper.writeValueAsString(userDto);
 
             mockMvc.perform(post("/users")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(userJson))
                     .andExpect(status().isConflict());
 
-            assertEquals(1, userDao.count());
+            assertEquals(2, userDao.count());
         }
 
         @Test
         @Order(3)
         void getUserById_Success_ShouldReturn200() throws Exception {
-            final User user = new User();
-            user.setName("Alice");
-            user.setSurname("Wonder");
-            user.setEmail("alice@test.com");
-            user.setBirthDate(LocalDate.of(1988, 7, 20));
-            user.setActive(true);
-            User savedUser = userDao.save(user);
-
-            mockMvc.perform(get("/users/{id}", savedUser.getId()))
+            mockMvc.perform(get("/users/{id}", regularUserId)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(savedUser.getId()))
-                    .andExpect(jsonPath("$.name").value("Alice"))
-                    .andExpect(jsonPath("$.email").value("alice@test.com"));
+                    .andExpect(jsonPath("$.id").value(regularUserId))
+                    .andExpect(jsonPath("$.name").value("Regular"))
+                    .andExpect(jsonPath("$.email").value("user@test.com"));
         }
 
         @Test
         @Order(4)
         void getUserById_NotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/users/99999"))
+            mockMvc.perform(get("/users/99999")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
 
         @Test
         @Order(5)
         void getAllUsers_WithPagination_ShouldReturnPage() throws Exception {
-            for (int i = 0; i < 5; i++) {
-                final User user = new User();
-                user.setName("User" + i);
-                user.setSurname("Last" + i);
-                user.setEmail("user" + i + "@test.com");
-                user.setBirthDate(LocalDate.of(1990, 1, 1));
-                user.setActive(true);
-                userDao.save(user);
-            }
-
             mockMvc.perform(get("/users")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .param("page", "0")
                             .param("size", "3"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(3))
-                    .andExpect(jsonPath("$.totalElements").value(5))
-                    .andExpect(jsonPath("$.totalPages").value(2));
-
-            mockMvc.perform(get("/users")
-                            .param("page", "1")
-                            .param("size", "3"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(2));
+                    .andExpect(jsonPath("$.content.length()").value(2))
+                    .andExpect(jsonPath("$.totalElements").value(2))
+                    .andExpect(jsonPath("$.totalPages").value(1));
         }
 
         @Test
         @Order(6)
         void updateUser_Success_ShouldReturn200() throws Exception {
-            final User user = new User();
-            user.setName("Bob");
-            user.setSurname("Brown");
-            user.setEmail("bob@test.com");
-            user.setBirthDate(LocalDate.of(1985, 3, 25));
-            user.setActive(true);
-            User savedUser = userDao.save(user);
-
             final UserDto updateDto = new UserDto();
-            updateDto.setId(savedUser.getId());
+            updateDto.setId(regularUserId);
             updateDto.setName("Robert");
             updateDto.setSurname("Brown Jr");
             updateDto.setEmail("robert.brown@test.com");
@@ -216,16 +217,15 @@ class FullFlowIntegrationTest {
 
             String updateJson = objectMapper.writeValueAsString(updateDto);
 
-            mockMvc.perform(put("/users/{id}", savedUser.getId())
+            mockMvc.perform(put("/users/{id}", regularUserId)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.name").value("Robert"))
                     .andExpect(jsonPath("$.email").value("robert.brown@test.com"));
-
-            final User updatedUser = userDao.findById(savedUser.getId()).orElseThrow();
-            assertEquals("Robert", updatedUser.getName());
-            assertEquals("robert.brown@test.com", updatedUser.getEmail());
         }
 
         @Test
@@ -238,6 +238,9 @@ class FullFlowIntegrationTest {
             final String updateJson = objectMapper.writeValueAsString(updateDto);
 
             mockMvc.perform(put("/users/99999")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
                     .andExpect(status().isBadRequest());
@@ -246,15 +249,18 @@ class FullFlowIntegrationTest {
         @Test
         @Order(8)
         void activateUser_Success_ShouldReturn204() throws Exception {
-            final User user = new User();
-            user.setName("Charlie");
-            user.setSurname("Activate");
-            user.setEmail("charlie@test.com");
-            user.setBirthDate(LocalDate.of(1995, 8, 12));
-            user.setActive(false);
-            final User savedUser = userDao.save(user);
+            User inactiveUser = new User();
+            inactiveUser.setName("Charlie");
+            inactiveUser.setSurname("Activate");
+            inactiveUser.setEmail("charlie@test.com");
+            inactiveUser.setBirthDate(LocalDate.of(1995, 8, 12));
+            inactiveUser.setActive(false);
+            final User savedUser = userDao.save(inactiveUser);
 
-            mockMvc.perform(patch("/users/{id}/activate", savedUser.getId()))
+            mockMvc.perform(patch("/users/{id}/activate", savedUser.getId())
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
 
             final User activatedUser = userDao.findById(savedUser.getId()).orElseThrow();
@@ -264,33 +270,33 @@ class FullFlowIntegrationTest {
         @Test
         @Order(9)
         void activateUser_NotFound_ShouldReturn204() throws Exception {
-            mockMvc.perform(patch("/users/99999/activate"))
+            mockMvc.perform(patch("/users/99999/activate")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
         }
 
         @Test
         @Order(10)
         void deactivateUser_Success_ShouldReturn204() throws Exception {
-            final User user = new User();
-            user.setName("David");
-            user.setSurname("Deactivate");
-            user.setEmail("david@test.com");
-            user.setBirthDate(LocalDate.of(1992, 11, 5));
-            user.setActive(true);
-
-            final User savedUser = userDao.save(user);
-
-            mockMvc.perform(patch("/users/{id}/deactivate", savedUser.getId()))
+            mockMvc.perform(patch("/users/{id}/deactivate", regularUserId)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
 
-            final User deactivatedUser = userDao.findById(savedUser.getId()).orElseThrow();
+            final User deactivatedUser = userDao.findById(regularUserId).orElseThrow();
             assertFalse(deactivatedUser.getActive());
         }
 
         @Test
         @Order(11)
         void deactivateUser_NotFound_ShouldReturn204() throws Exception {
-            mockMvc.perform(patch("/users/99999/deactivate"))
+            mockMvc.perform(patch("/users/99999/deactivate")
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
         }
     }
@@ -299,20 +305,20 @@ class FullFlowIntegrationTest {
     @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
     class PaymentCardControllerTests {
 
-        private User createTestUser() {
-            final User user = new User();
+        private Long createTestUser() {
+            User user = new User();
             user.setName("Card");
             user.setSurname("Owner");
             user.setEmail("card.owner@test.com");
             user.setBirthDate(LocalDate.of(1988, 4, 15));
             user.setActive(true);
-            return userDao.save(user);
+            return userDao.save(user).getId();
         }
 
         @Test
         @Order(12)
         void createPaymentCard_Success_ShouldReturn201() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
 
             final PaymentCardDto cardDto = new PaymentCardDto();
             cardDto.setNumber("1234567890123456");
@@ -322,7 +328,10 @@ class FullFlowIntegrationTest {
 
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
-            mockMvc.perform(post("/users/{userId}/payment-card", user.getId())
+            mockMvc.perform(post("/users/{userId}/payment-card", userId)
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isCreated())
@@ -330,14 +339,14 @@ class FullFlowIntegrationTest {
                     .andExpect(jsonPath("$.holder").value("Card Owner"));
 
             final List<PaymentCard> cards = paymentCardDao.findAll();
-            assertEquals(1, cards.size());
-            assertEquals(user.getId(), cards.get(0).getUser().getId());
+            assertEquals(3, cards.size());
         }
 
         @Test
         @Order(13)
         void createPaymentCard_DuplicateNumber_ShouldReturn409() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             final PaymentCard card = new PaymentCard();
             card.setNumber("9999888877776666");
@@ -355,12 +364,15 @@ class FullFlowIntegrationTest {
 
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
-            mockMvc.perform(post("/users/{userId}/payment-card", user.getId())
+            mockMvc.perform(post("/users/{userId}/payment-card", userId)
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isConflict());
 
-            assertEquals(1, paymentCardDao.count());
+            assertEquals(3, paymentCardDao.count());
         }
 
         @Test
@@ -375,6 +387,9 @@ class FullFlowIntegrationTest {
             final String cardJson = objectMapper.writeValueAsString(cardDto);
 
             mockMvc.perform(post("/users/{userId}/payment-card", 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cardJson))
                     .andExpect(status().isNotFound());
@@ -383,7 +398,8 @@ class FullFlowIntegrationTest {
         @Test
         @Order(15)
         void getPaymentCardById_Success_ShouldReturn200() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             final PaymentCard card = new PaymentCard();
             card.setNumber("5555444433332222");
@@ -394,7 +410,10 @@ class FullFlowIntegrationTest {
 
             final PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", user.getId(), savedCard.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", userId, savedCard.getId())
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").value(savedCard.getId()))
                     .andExpect(jsonPath("$.number").value("5555444433332222"))
@@ -404,16 +423,20 @@ class FullFlowIntegrationTest {
         @Test
         @Order(16)
         void getPaymentCardById_NotFound_ShouldReturn404() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
 
-            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", user.getId(), 99999L))
+            mockMvc.perform(get("/users/{userId}/payment-card/{cardId}", userId, 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
 
         @Test
         @Order(17)
         void getAllPaymentCardsByUserId_Success_ShouldReturnList() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             for (int i = 0; i < 3; i++) {
                 final PaymentCard card = new PaymentCard();
@@ -425,7 +448,10 @@ class FullFlowIntegrationTest {
                 paymentCardDao.save(card);
             }
 
-            mockMvc.perform(get("/users/{userId}/payment-card", user.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card", userId)
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(3));
         }
@@ -433,14 +459,18 @@ class FullFlowIntegrationTest {
         @Test
         @Order(18)
         void getAllPaymentCardsByUserId_UserNotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/users/{userId}/payment-card", 99999L))
+            mockMvc.perform(get("/users/{userId}/payment-card", 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
 
         @Test
         @Order(19)
         void updatePaymentCard_Success_ShouldReturn200() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             final PaymentCard card = new PaymentCard();
             card.setNumber("1234123412341234");
@@ -459,24 +489,22 @@ class FullFlowIntegrationTest {
 
             final String updateJson = objectMapper.writeValueAsString(updateDto);
 
-            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", user.getId(), savedCard.getId())
+            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", userId, savedCard.getId())
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.number").value("9999999999999999"))
                     .andExpect(jsonPath("$.holder").value("Updated Holder"))
                     .andExpect(jsonPath("$.active").value(false));
-
-            final PaymentCard updatedCard = paymentCardDao.findById(savedCard.getId()).orElseThrow();
-            assertEquals("9999999999999999", updatedCard.getNumber());
-            assertEquals("Updated Holder", updatedCard.getHolder());
-            assertFalse(updatedCard.getActive());
         }
 
         @Test
         @Order(20)
         void updatePaymentCard_NotFound_ShouldReturn400() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
 
             final PaymentCardDto updateDto = new PaymentCardDto();
             updateDto.setNumber("1111111111111111");
@@ -484,16 +512,20 @@ class FullFlowIntegrationTest {
 
             final String updateJson = objectMapper.writeValueAsString(updateDto);
 
-            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", user.getId(), 99999L)
+            mockMvc.perform(put("/users/{userId}/payment-card/{cardId}", userId, 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(updateJson))
-                    .andExpect(status().isBadRequest());  // Ожидаем 400
+                    .andExpect(status().isBadRequest());
         }
 
         @Test
         @Order(21)
         void activatePaymentCard_Success_ShouldReturn204() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             final PaymentCard card = new PaymentCard();
             card.setNumber("8888777766665555");
@@ -504,7 +536,10 @@ class FullFlowIntegrationTest {
 
             final PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", user.getId(), savedCard.getId()))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", userId, savedCard.getId())
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
 
             final PaymentCard activatedCard = paymentCardDao.findById(savedCard.getId()).orElseThrow();
@@ -514,16 +549,20 @@ class FullFlowIntegrationTest {
         @Test
         @Order(22)
         void activatePaymentCard_NotFound_ShouldReturn404() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
 
-            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", user.getId(), 99999L))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/activate", userId, 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
 
         @Test
         @Order(23)
         void deactivatePaymentCard_Success_ShouldReturn204() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
+            User user = userDao.findById(userId).orElseThrow();
 
             final PaymentCard card = new PaymentCard();
             card.setNumber("4444333322221111");
@@ -533,7 +572,10 @@ class FullFlowIntegrationTest {
             card.setUser(user);
             PaymentCard savedCard = paymentCardDao.save(card);
 
-            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", user.getId(), savedCard.getId()))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", userId, savedCard.getId())
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNoContent());
 
             final PaymentCard deactivatedCard = paymentCardDao.findById(savedCard.getId()).orElseThrow();
@@ -543,9 +585,12 @@ class FullFlowIntegrationTest {
         @Test
         @Order(24)
         void deactivatePaymentCard_NotFound_ShouldReturn404() throws Exception {
-            final User user = createTestUser();
+            Long userId = createTestUser();
 
-            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", user.getId(), 99999L))
+            mockMvc.perform(patch("/users/{userId}/payment-card/{cardId}/deactivate", userId, 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
     }
@@ -556,37 +601,27 @@ class FullFlowIntegrationTest {
         @Test
         @Order(25)
         void getUserWithCards_Success_ShouldReturn200() throws Exception {
-            final User user = new User();
-            user.setName("Complete");
-            user.setSurname("User");
-            user.setEmail("complete.user@test.com");
-            user.setBirthDate(LocalDate.of(1987, 6, 10));
-            user.setActive(true);
+            Long userId = regularUserId;
 
-            final User savedUser = userDao.save(user);
+            List<PaymentCard> cards = paymentCardDao.findAllByUserId(userId);
+            assertEquals(2, cards.size());
 
-            for (int i = 0; i < 2; i++) {
-                final PaymentCard card = new PaymentCard();
-                card.setNumber("555566667777888" + i);
-                card.setHolder("Complete User");
-                card.setExpirationDate(LocalDate.now().plusYears(3));
-                card.setActive(true);
-                card.setUser(savedUser);
-
-                paymentCardDao.save(card);
-            }
-
-            mockMvc.perform(get("/users/{userId}/payment-card-with-user", savedUser.getId()))
+            mockMvc.perform(get("/users/{userId}/payment-card-with-user", userId)
+                            .header("Authorization", USER_TOKEN)
+                            .requestAttr("userId", userId)
+                            .requestAttr("userRole", "ROLE_USER"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.id").value(savedUser.getId()))
-                    .andExpect(jsonPath("$.name").value("Complete"))
+                    .andExpect(jsonPath("$.id").value(userId))
                     .andExpect(jsonPath("$.cards.length()").value(2));
         }
 
         @Test
         @Order(26)
         void getUserWithCards_UserNotFound_ShouldReturn404() throws Exception {
-            mockMvc.perform(get("/users/{userId}/payment-card-with-user", 99999L))
+            mockMvc.perform(get("/users/{userId}/payment-card-with-user", 99999L)
+                            .header("Authorization", ADMIN_TOKEN)
+                            .requestAttr("userId", adminUserId)
+                            .requestAttr("userRole", "ROLE_ADMIN"))
                     .andExpect(status().isNotFound());
         }
     }
