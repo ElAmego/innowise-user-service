@@ -1,25 +1,43 @@
 package com.innowise.userservice;
 
 import com.innowise.userservice.configuration.AppConfiguration;
+import com.innowise.userservice.configuration.WebConfig;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.FilterRegistration;
 import jakarta.servlet.ServletContext;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRegistration;
 import org.springframework.web.WebApplicationInitializer;
+import org.springframework.web.context.ContextLoaderListener;
 import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
+import org.springframework.web.filter.DelegatingFilterProxy;
 import org.springframework.web.servlet.DispatcherServlet;
 
 public class WebAppInitializer implements WebApplicationInitializer {
-    private static final String DISPATCHER = "dispatcher";
 
     @Override
-    public void onStartup(ServletContext servletContext) {
-        final AnnotationConfigWebApplicationContext context = new AnnotationConfigWebApplicationContext();
-        context.register(AppConfiguration.class);
+    public void onStartup(ServletContext servletContext) throws ServletException {
+        AnnotationConfigWebApplicationContext rootContext = new AnnotationConfigWebApplicationContext();
+        rootContext.register(AppConfiguration.class);
 
-        final DispatcherServlet dispatcherServlet = new DispatcherServlet(context);
-        final ServletRegistration.Dynamic registration = servletContext.addServlet(DISPATCHER, dispatcherServlet);
+        servletContext.addListener(new ContextLoaderListener(rootContext));
 
-        registration.setLoadOnStartup(1);
-        registration.addMapping("/");
+        FilterRegistration.Dynamic securityFilter = servletContext.addFilter(
+                "springSecurityFilterChain",
+                new DelegatingFilterProxy("springSecurityFilterChain")
+        );
+        securityFilter.addMappingForUrlPatterns(null, false, "/*");
+        securityFilter.setAsyncSupported(true);
+
+        AnnotationConfigWebApplicationContext servletContextConfig = new AnnotationConfigWebApplicationContext();
+        servletContextConfig.register(WebConfig.class);
+
+        DispatcherServlet dispatcherServlet = new DispatcherServlet(servletContextConfig);
+        jakarta.servlet.ServletRegistration.Dynamic dispatcher = servletContext.addServlet(
+                "dispatcher",
+                dispatcherServlet
+        );
+        dispatcher.setLoadOnStartup(1);
+        dispatcher.addMapping("/");
     }
 }
