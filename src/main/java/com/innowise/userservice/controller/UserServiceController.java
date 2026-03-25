@@ -31,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserServiceController {
     private static final int PAGINATION_SIZE = 15;
     private static final String PAGINATION_SORTED_BY = "id";
+    private static final String ROLE_ADMIN_VALUE = "ROLE_ADMIN";
     private final UserService userService;
     private final PaymentCardService paymentCardService;
 
@@ -70,7 +71,7 @@ public class UserServiceController {
         Long userId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !userId.equals(id)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !userId.equals(id)) {
             throw new AccessDeniedException("Access denied. You can only view your own profile.");
         }
 
@@ -87,7 +88,7 @@ public class UserServiceController {
         Long userId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !userId.equals(id)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !userId.equals(id)) {
             throw new AccessDeniedException("Access denied. You can only update your own profile.");
         }
 
@@ -115,7 +116,7 @@ public class UserServiceController {
         Long currentUserId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !currentUserId.equals(userId)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !currentUserId.equals(userId)) {
             throw new AccessDeniedException("Access denied. You can only view your own cards.");
         }
 
@@ -132,7 +133,7 @@ public class UserServiceController {
         Long currentUserId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !currentUserId.equals(userId)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !currentUserId.equals(userId)) {
             throw new AccessDeniedException("Access denied. You can only add cards to your own profile.");
         }
 
@@ -149,7 +150,7 @@ public class UserServiceController {
         Long currentUserId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !currentUserId.equals(userId)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !currentUserId.equals(userId)) {
             throw new AccessDeniedException("Access denied. You can only view your own cards.");
         }
 
@@ -174,7 +175,7 @@ public class UserServiceController {
         Long currentUserId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !currentUserId.equals(userId)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !currentUserId.equals(userId)) {
             throw new AccessDeniedException("Access denied. You can only view your own cards.");
         }
 
@@ -192,7 +193,7 @@ public class UserServiceController {
         Long currentUserId = getUserIdFromRequest(request);
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role) && !currentUserId.equals(userId)) {
+        if (!ROLE_ADMIN_VALUE.equals(role) && !currentUserId.equals(userId)) {
             throw new AccessDeniedException("Access denied. You can only update your own cards.");
         }
 
@@ -209,7 +210,7 @@ public class UserServiceController {
     ) {
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role)) {
+        if (!ROLE_ADMIN_VALUE.equals(role)) {
             throw new AccessDeniedException("Access denied. Only ADMIN can activate cards.");
         }
 
@@ -225,7 +226,7 @@ public class UserServiceController {
     ) {
         String role = getRoleFromRequest(request);
 
-        if (!"ROLE_ADMIN".equals(role)) {
+        if (!ROLE_ADMIN_VALUE.equals(role)) {
             throw new AccessDeniedException("Access denied. Only ADMIN can activate cards.");
         }
 
@@ -251,7 +252,7 @@ public class UserServiceController {
 
     private void checkAdminAccess(HttpServletRequest request) {
         String role = getRoleFromRequest(request);
-        if (!"ROLE_ADMIN".equals(role)) {
+        if (!ROLE_ADMIN_VALUE.equals(role)) {
             throw new AccessDeniedException("Access denied. ADMIN role required.");
         }
     }

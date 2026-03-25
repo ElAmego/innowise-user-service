@@ -69,11 +69,9 @@ class FullFlowIntegrationTest {
 
     private Long adminUserId;
     private Long regularUserId;
-    private Long otherUserId;
 
     private static final String ADMIN_TOKEN = "Bearer test-admin-token";
     private static final String USER_TOKEN = "Bearer test-user-token";
-    private static final String OTHER_USER_TOKEN = "Bearer test-other-user-token";
 
     @BeforeAll
     static void beforeAll() {
@@ -94,7 +92,6 @@ class FullFlowIntegrationTest {
 
         adminUserId = createTestUser("Admin", "User", "admin@test.com", true);
         regularUserId = createTestUser("Regular", "User", "user@test.com", true);
-        otherUserId = createTestUser("Other", "User", "other@test.com", true);
 
         User user = userDao.findById(regularUserId).orElseThrow();
         for (int i = 0; i < 2; i++) {
@@ -143,7 +140,7 @@ class FullFlowIntegrationTest {
                     .andExpect(status().isCreated());
 
             final List<User> users = userDao.findAll();
-            assertEquals(4, users.size());
+            assertEquals(3, users.size());
         }
 
         @Test
@@ -166,7 +163,7 @@ class FullFlowIntegrationTest {
                             .content(userJson))
                     .andExpect(status().isConflict());
 
-            assertEquals(3, userDao.count());
+            assertEquals(2, userDao.count());
         }
 
         @Test
@@ -202,8 +199,8 @@ class FullFlowIntegrationTest {
                             .param("page", "0")
                             .param("size", "3"))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.content.length()").value(3))
-                    .andExpect(jsonPath("$.totalElements").value(3))
+                    .andExpect(jsonPath("$.content.length()").value(2))
+                    .andExpect(jsonPath("$.totalElements").value(2))
                     .andExpect(jsonPath("$.totalPages").value(1));
         }
 

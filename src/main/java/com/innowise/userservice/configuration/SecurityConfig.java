@@ -19,7 +19,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) {
 
         http
             .csrf(AbstractHttpConfigurer::disable)
@@ -29,12 +29,11 @@ public class SecurityConfig {
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
-        SecurityFilterChain chain = http.build();
-        return chain;
+        return http.build();
     }
 
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers("/resources/**");
+        return web -> web.ignoring().requestMatchers("/resources/**");
     }
 }
